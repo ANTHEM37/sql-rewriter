@@ -13,6 +13,7 @@ import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.ParenthesedSelect;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.SelectVisitorAdapter;
 
@@ -38,12 +39,12 @@ public class AddConditionSelectVisitor extends SelectVisitorAdapter implements I
      * 目标表名（区分大小写，建议与SQL中表名保持一致）
      * 仅当AST节点的表名与此一致时才会应用条件。
      */
-    private String tableName;
+    private final String tableName;
     /**
      * 条件表达式（如等值、范围等），会自动适配表别名
      * 通过IConditionExpression接口实现，支持灵活扩展。
      */
-    private IConditionExpression conditionExpression;
+    private final IConditionExpression conditionExpression;
 
     /**
      * 访问PlainSelect节点，添加where和join条件
@@ -73,7 +74,9 @@ public class AddConditionSelectVisitor extends SelectVisitorAdapter implements I
 
         // 递归处理fromItem（如子查询、嵌套结构）
         AddConditionFromItemVisitor sieveFromItemVisitor = new AddConditionFromItemVisitor(tableName, conditionExpression);
-        fromItem.accept(sieveFromItemVisitor);
+        if (fromItem != null) {
+            fromItem.accept(sieveFromItemVisitor);
+        }
 
         // 处理所有JOIN表
         for (Join join : Optional.ofNullable(plainSelect.getJoins()).orElse(Lists.newArrayList())) {
@@ -88,7 +91,9 @@ public class AddConditionSelectVisitor extends SelectVisitorAdapter implements I
                 }
             }
             // 递归处理JOIN右表（如子查询、嵌套结构）
-            rightItem.accept(sieveFromItemVisitor);
+            if (rightItem != null) {
+                rightItem.accept(sieveFromItemVisitor);
+            }
         }
 
         // 递归处理WHERE表达式中的子查询（如IN、EXISTS等）
